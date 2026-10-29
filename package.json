@@ -1,7 +1,7 @@
 {
   "name": "workspace-template-engine",
   "version": "0.1.0",
-  "description": "Workspace template engine",
+  "description": "Review and apply workspace templates with stale-plan checks, atomic file replacement and optional content rollback.",
   "type": "module",
   "private": true,
   "exports": {
@@ -12,7 +12,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=24.0.0"
@@ -38,14 +39,34 @@
     "verify:templates:build-sections": "node --test test/stages/14.test.mjs",
     "verify:templates:standalone-release": "node --test test/stages/15.test.mjs",
     "pretest": "npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "typecheck:examples": "tsc -p tsconfig.examples.json",
+    "check": "npm run typecheck && npm run typecheck:examples && npm test",
+    "demo": "npm run build && node examples/demo.mjs",
+    "verify:templates:plan-review": "node --test test/features/review.test.mjs",
+    "verify:templates:stale-plan": "node --test test/features/preconditions.test.mjs",
+    "verify:templates:atomic-write": "node --test test/features/atomic.test.mjs",
+    "verify:templates:cancellation": "node --test test/features/cancellation.test.mjs",
+    "verify:templates:rollback": "node --test test/features/rollback.test.mjs",
+    "verify:templates:topology": "node --test test/features/topology.test.mjs",
+    "verify:templates:config-merge": "node --test test/features/config-merge.test.mjs",
+    "verify:templates:source-containment": "node --test test/features/source-containment.test.mjs",
+    "verify:templates:render-policy": "node --test test/features/render-policies.test.mjs",
+    "verify:templates:cli": "node --test test/features/cli.test.mjs",
+    "verify:templates:submission": "node --test test/features/submission.test.mjs"
   },
   "devDependencies": {
     "@types/node": "24.10.0",
     "typescript": "5.9.3"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bin": {
     "workspace-templates": "dist/cli.js"
-  }
+  },
+  "keywords": [
+    "templates",
+    "workspace",
+    "typescript",
+    "code-generation"
+  ]
 }

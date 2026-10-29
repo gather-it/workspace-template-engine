@@ -1,0 +1,8 @@
+{
+  "root": ".",
+  "sources": ["templates"],
+  "templates": [{"file": "greeting.txt", "rendered": true}],
+  "context": {"project": {"name": "sample workspace"}},
+  "strict": true,
+  "rollbackOnError": true
+}

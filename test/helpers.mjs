@@ -22,7 +22,8 @@ export function verifyPacked(t, exercise) {
   const npm=process.platform==='win32'?'npm.cmd':'npm';
   const cache=packedJoin(directory,'cache');
   const [manifest]=JSON.parse(run(npm,['pack','--ignore-scripts','--json','--pack-destination',directory,'--cache',cache],root));
-  if(!manifest.files.length || !manifest.files.every(file=>file.path==='package.json'||file.path==='README.md'||file.path.startsWith('dist/'))) throw new Error('Unexpected packed files');
+  if(!manifest.files.length || !manifest.files.every(file=>file.path==='package.json'||file.path==='README.md'||file.path==='LICENSE'||file.path.startsWith('dist/'))) throw new Error('Unexpected packed files');
+  if(!manifest.files.some(file=>file.path==='LICENSE')) throw new Error('Packed license missing');
   if(manifest.files.some(file=>file.path.endsWith('.map'))) throw new Error('Source maps must not ship');
   packedWrite(packedJoin(directory,'package.json'),JSON.stringify({name:'isolated-consumer',private:true,type:'module'}));
   run(npm,['install','--offline','--ignore-scripts','--omit=dev','--no-audit','--no-fund','--package-lock=false','--cache',cache,packedJoin(directory,manifest.filename)],directory);

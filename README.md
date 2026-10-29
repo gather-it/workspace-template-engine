@@ -1,72 +1,119 @@
 # workspace-template-engine
 
-Template application and pure workspace configuration transforms.
+A TypeScript library and CLI for reviewing workspace template changes before writing them.
 
-## Run
+This is for developers maintaining generated text files across a workspace: shared configuration, project scaffolding and small documentation sections. It separates source selection, rendering, planning and application so callers can inspect a change, reject a stale plan and recover file contents after a failed run. There are no runtime dependencies.
 
-Requires Node 24 or later. Prebuilt JavaScript and declarations are included; there are no runtime dependencies.
+**Status:** early prototype. Evidence currently consists of synthetic examples, automated tests and local package-install checks. No production adoption, published release or longer maintenance history is claimed. The [roadmap](ROADMAP.md) describes 35 estimated hours of future work.
 
-```sh
-node --test test/stages/*.test.mjs
-```
+## Run locally
 
-To rebuild and typecheck after editing:
+Use Node 24 or later with npm:
 
 ```sh
 npm ci --ignore-scripts
-npm run typecheck
-npm run build
-npm test
+npm run check
+npm run demo
 ```
 
-Run all named stages with `npm run verify:through`, or the first N with `npm run verify:through -- N`. Stage 15 also packs and installs the artifact into a separate temporary consumer without workspace links or network access.
+The demonstration uses a temporary directory and synthetic templates. It makes no network requests and removes its output afterward:
 
-## Example
+```text
+Planned: 1 create
+Applied: greeting.txt
+Drift check: clean
+```
+
+Development dependencies are TypeScript and the Node type declarations. Tests use Node's built-in runner. The complete check covers the source, typed consumer examples, runtime tests and an offline installation of a locally packed artifact, including its CLI entry.
+
+## Use the CLI
+
+After building, create a project containing a `templates` directory and this `workspace.json`:
+
+```json
+{
+  "sources": ["templates"],
+  "templates": [{"file": "greeting.txt", "rendered": true}],
+  "context": {"project": {"name": "sample workspace"}},
+  "strict": true,
+  "rollbackOnError": true
+}
+```
+
+Put `Hello {{project.name}}!` in `templates/_greeting.txt`. With the built CLI path in place of `path/to`, run:
+
+```sh
+node path/to/dist/cli.js plan workspace.json
+node path/to/dist/cli.js check workspace.json
+node path/to/dist/cli.js apply workspace.json
+```
+
+The installed executable is `workspace-templates`. The npm package remains marked private to avoid accidental registry publication during development; local tarball installation works.
+
+| Command | Result |
+| --- | --- |
+| `plan` | Prints action counts and filenames without writing or printing file contents. |
+| `check` | Prints the same summary; exits 2 for any content drift, including protected files, or 0 when clean. |
+| `apply` | Plans and applies explicitly, returning written and skipped filenames as JSON. |
+
+Errors exit 1 with a fixed message. Cancellation exits 130 when detected. `--help` exits 0. Root and source paths resolve relative to the configuration file, not the terminal's current directory. The output root must already exist. Unknown configuration fields are rejected to catch typos.
+
+The optional fields are `root`, `overwriteAll`, `missing` (`error` or `skip`), `strict`, `maxOutputBytes` and `rollbackOnError`. There are no Git commands or external processes hidden in template application.
+
+## Library example
 
 ```js
-import {createCatalog, planTemplates, applyTemplatePlan, nodeFiles} from './dist/index.js';
+import {createCatalog, nodeFiles, planTemplates, reviewPlan, applyTemplatePlan}
+  from './dist/index.js';
+
 const fs = nodeFiles();
 const root = process.cwd();
 const plan = await planTemplates({
-  root, sources: [root + '/templates'], files: ['hello.txt'], fs,
-  catalog: createCatalog([{file: 'hello.txt', rendered: true}]),
-  context: {name: 'reader'},
+  root, sources: [root + '/templates'], fs,
+  files: ['greeting.txt'],
+  catalog: createCatalog([{file: 'greeting.txt', rendered: true}]),
+  context: {project: {name: 'sample workspace'}},
+  renderOptions: {missing: 'error'},
 });
-await applyTemplatePlan(plan, {root, fs});
+
+console.log(reviewPlan(plan));
+const result = await applyTemplatePlan(plan, {root, fs, rollbackOnError: true});
+console.log(result);
 ```
 
-## Behavior and boundaries
+`reviewPlan(plan, {includeDiff: true})` adds a bounded whole-file text preview. Contents are otherwise omitted. A preview is for human review, not a patch file. See [the typed example](examples/typed-plan.ts) for checked options and results.
 
-Supply your own templates. The example expects `templates/_hello.txt` to contain `Hello {{name}}`. Dotfiles use a leading underscore in their source name; other untracked or unspecified templates are prefixed with an underscore. Tracked sources retain their filename.
+## Behavior
 
-The built-in renderer supports simple escaped `{{key}}` and raw `{{{key}}}` substitutions. It does not implement sections, partials or the full Mustache language. Supply another renderer when needed. Raw-copy entries do not interpolate. Planning has no write or Git side effects.
+- The first source containing a template wins. Source dotfiles use a leading underscore; other untracked or unspecified sources are prefixed with an underscore. A tracked source keeps its filename.
+- The renderer supports escaped `{{key}}` and raw `{{{key}}}` values, including nested own properties. An explicit dotted key wins over nested lookup. Inserted values are never interpreted as template syntax. Sections and partials are not supported; callers may supply another renderer.
+- Existing files are protected unless a template or caller enables overwrite. Byte-identical output is not rewritten. Optional tracking hooks still run for unchanged entries, preserving the original API contract.
+- Plans record destination fingerprints. A changed, created or deleted destination invalidates the recorded plan. Replan instead of forcing an old plan through. Hand-built legacy plans without fingerprints cannot provide this protection.
+- The Node adapter validates canonical source roots, rejects symbolic destinations and replaces each file with a same-directory rename. Existing permission bits are retained; new files use mode 0600. Custom file ports must supply equivalent guarantees if needed.
+- Cancellation is checked at planning and application boundaries. A write already in progress may finish. The default retains completed writes; optional rollback restores their prior contents or removes newly created files.
+- Rollback refuses to overwrite a conflicting external edit. It does not undo Git hooks, restore every metadata field, remove newly created empty directories or provide crash recovery. It requires a port with `remove` and writes that either complete or leave recoverable contents.
 
-Application creates directories, invokes optional tracking hooks, then writes changed content permitted by overwrite policy. Tracking hooks also run for unchanged files. There are no default Git commands, release presets, registry settings or repository templates. Existing destination protection, per-template overwrite, overwrite-all and selected-file overwrite are separate controls.
+These checks do not make template execution a sandbox. Prevent concurrent filesystem replacement during application and use trusted template sources and custom hooks. A stale check and a rename are not a filesystem-wide transaction.
 
-The Node filesystem adapter checks destination containment including existing symlinked parents. Source directories and templates must be trusted. Callers must prevent concurrent filesystem replacement during apply; these checks are not an operating-system sandbox. Writes are sequential and not transactional: an I/O failure may leave earlier planned files applied. A supplied port may implement stronger atomicity.
+## Workspace transforms
 
-Workspace graphs are explicit and reject cycles, duplicate names and missing nodes. TypeScript transforms return copies. Section replacement requires exactly one ordered marker pair and preserves surrounding text. Command rendering is supplied by the caller; no generated build command is executed.
+`dependencyClosure` preserves root-first traversal. `topologicalWorkspaces` gives a stable dependency-first order. Graph validation rejects duplicate identities or locations, outside-root locations, missing dependencies and cycles, including disconnected cycles.
 
-## Verification commands
+`updateTypeScript` returns copies of root and workspace configurations. Defaults retain replacement semantics. Pass `{paths: 'merge', references: 'merge', conflicts: 'existing'}` to preserve handwritten aliases and references; conflict handling can instead prefer generated values or reject the transform. Marked-section transforms preserve surrounding text and reject missing, reversed or repeated markers. They produce text and never execute build commands.
 
-| Stage | Command |
-| --- | --- |
-| 1 | `npm run verify:templates:engine-boundary` |
-| 2 | `npm run verify:templates:catalog` |
-| 3 | `npm run verify:templates:source-names` |
-| 4 | `npm run verify:templates:source-precedence` |
-| 5 | `npm run verify:templates:render-context` |
-| 6 | `npm run verify:templates:render-semantics` |
-| 7 | `npm run verify:templates:overwrite-policy` |
-| 8 | `npm run verify:templates:change-plan` |
-| 9 | `npm run verify:templates:destination-safety` |
-| 10 | `npm run verify:templates:tracking-hooks` |
-| 11 | `npm run verify:templates:document-merge` |
-| 12 | `npm run verify:templates:workspace-graph` |
-| 13 | `npm run verify:templates:typescript-references` |
-| 14 | `npm run verify:templates:build-sections` |
-| 15 | `npm run verify:templates:standalone-release` |
+## Development
 
-## Implementation status
+```sh
+npm run typecheck
+npm run typecheck:examples
+npm test
+npm run verify:through
+```
 
-This is a standalone implementation of the neutral contracts used by this package. Stage tests validate the behavior implemented here. They do not certify an existing application's compatibility adapter, production migration, browser bundle, database integration or rollback. No publishing rights are granted by this distribution. The package is private and unlicensed for redistribution.
+Feature-specific verification scripts live in `package.json`. The original fifteen groups remain, followed by the added capability groups. Their count is independent of Git commit count. CI runs `npm run check` on Node 24 once the repository is hosted on GitHub.
+
+Read [the design notes](docs/design.md), [contribution guide](CONTRIBUTING.md), [development record](DEVELOPMENT.md) and [roadmap](ROADMAP.md). Report actual adoption when it exists; the included demonstration is not production-use evidence.
+
+## License
+
+[MIT](LICENSE).
