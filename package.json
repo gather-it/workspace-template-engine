@@ -20,7 +20,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/stages/*.test.mjs",
+    "test": "node --test test/stages/*.test.mjs test/features/*.test.mjs",
     "verify:through": "node scripts/verify-through.mjs",
     "verify:templates:engine-boundary": "node --test test/stages/01.test.mjs",
     "verify:templates:catalog": "node --test test/stages/02.test.mjs",
@@ -36,11 +36,16 @@
     "verify:templates:workspace-graph": "node --test test/stages/12.test.mjs",
     "verify:templates:typescript-references": "node --test test/stages/13.test.mjs",
     "verify:templates:build-sections": "node --test test/stages/14.test.mjs",
-    "verify:templates:standalone-release": "node --test test/stages/15.test.mjs"
+    "verify:templates:standalone-release": "node --test test/stages/15.test.mjs",
+    "pretest": "npm run build",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@types/node": "24.10.0",
     "typescript": "5.9.3"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "bin": {
+    "workspace-templates": "dist/cli.js"
+  }
 }
