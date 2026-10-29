@@ -2,6 +2,8 @@ import path from 'node:path';
 import {promises as fs, existsSync, realpathSync} from 'node:fs';
 import type {FilePort, PlannedFile} from './plan.js';
 import {contained} from './resolve.js';
+import {assertPlanCurrent} from './preconditions.js';
+import {TemplateError} from './errors.js';
 export async function applyTemplatePlan(plan: readonly PlannedFile[], options: {
   root: string; fs: FilePort; track?: (file: string, tracked: boolean) => void | Promise<void>;
 }) {
@@ -10,14 +12,16 @@ export async function applyTemplatePlan(plan: readonly PlannedFile[], options: {
     for (const file of plan) {
       if (contained(options.root, file.file) !== path.resolve(file.destination)) throw new Error();
       await options.fs.validate?.(options.root, file.destination);
+      await assertPlanCurrent(file, options.fs);
     }
     for (const file of plan) {
       await options.fs.validate?.(options.root, file.destination);
       await options.fs.ensureParent(file.destination);
       if (file.tracked !== undefined) await options.track?.(file.destination, file.tracked);
+      await assertPlanCurrent(file, options.fs);
       if (file.write) await options.fs.write(file.destination, file.contents);
     }
-  } catch { throw new Error('Template application failed'); }
+  } catch (error) { if (error instanceof TemplateError) throw error; throw new TemplateError('apply-failed'); }
 }
 export function nodeFiles(): FilePort {
   return {

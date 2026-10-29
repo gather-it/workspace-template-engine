@@ -7,3 +7,4 @@ export * from './graph.js';
 export * from './typescript.js';
 export * from './sections.js';
 export * from './review.js';
+export * from './errors.js';
