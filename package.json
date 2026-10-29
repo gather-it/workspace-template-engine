@@ -1,0 +1,46 @@
+{
+  "name": "workspace-template-engine",
+  "version": "0.1.0",
+  "description": "Workspace template engine",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/stages/*.test.mjs",
+    "verify:through": "node scripts/verify-through.mjs",
+    "verify:templates:engine-boundary": "node --test test/stages/01.test.mjs",
+    "verify:templates:catalog": "node --test test/stages/02.test.mjs",
+    "verify:templates:source-names": "node --test test/stages/03.test.mjs",
+    "verify:templates:source-precedence": "node --test test/stages/04.test.mjs",
+    "verify:templates:render-context": "node --test test/stages/05.test.mjs",
+    "verify:templates:render-semantics": "node --test test/stages/06.test.mjs",
+    "verify:templates:overwrite-policy": "node --test test/stages/07.test.mjs",
+    "verify:templates:change-plan": "node --test test/stages/08.test.mjs",
+    "verify:templates:destination-safety": "node --test test/stages/09.test.mjs",
+    "verify:templates:tracking-hooks": "node --test test/stages/10.test.mjs",
+    "verify:templates:document-merge": "node --test test/stages/11.test.mjs",
+    "verify:templates:workspace-graph": "node --test test/stages/12.test.mjs",
+    "verify:templates:typescript-references": "node --test test/stages/13.test.mjs",
+    "verify:templates:build-sections": "node --test test/stages/14.test.mjs",
+    "verify:templates:standalone-release": "node --test test/stages/15.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "typescript": "5.9.3"
+  },
+  "license": "UNLICENSED"
+}
