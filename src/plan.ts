@@ -2,7 +2,7 @@ import {type Template} from './catalog.js';
 import {resolveTemplate, contained} from './resolve.js';
 import {render} from './render.js';
 export interface FilePort {exists(file: string): boolean; read(file: string): Promise<string>; write(file: string, contents: string): Promise<void>; ensureParent(file: string): Promise<void>; validate?(root: string, file: string): Promise<void>}
-export interface PlannedFile {file: string; destination: string; contents: string; tracked?: boolean; changed: boolean; write: boolean}
+export interface PlannedFile {file: string; destination: string; contents: string; previous?: string; tracked?: boolean; changed: boolean; write: boolean}
 export interface PlanOptions {
   root: string; sources: readonly string[]; catalog: ReadonlyMap<string, Readonly<Template>>; files: readonly string[];
   fs: FilePort; context?: Readonly<Record<string, unknown>>; overwriteAll?: boolean; overwrite?: string;
@@ -25,7 +25,7 @@ export async function planTemplates(options: PlanOptions): Promise<PlannedFile[]
       let contents = await options.fs.read(source);
       if (template.rendered) contents = await (options.render ?? render)(contents, options.context ?? {});
       if (options.transform) contents = await options.transform(file, contents, previous);
-      result.push({file, destination, contents, tracked: template.tracked, changed: contents !== previous,
+      result.push({file, destination, contents, previous, tracked: template.tracked, changed: contents !== previous,
         write: contents !== previous && (previous === undefined || !!template.overwrite || !!options.overwriteAll || !!options.overwrite)});
     }
   } catch { throw new Error('Template planning failed'); }
