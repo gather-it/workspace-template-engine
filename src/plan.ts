@@ -1,6 +1,6 @@
 import {type Template} from './catalog.js';
 import {resolveTemplate, contained} from './resolve.js';
-import {render} from './render.js';
+import {render, type RenderOptions} from './render.js';
 import {contentDigest} from './preconditions.js';
 import {checkAbort,TemplateError} from './errors.js';
 import path from 'node:path';
@@ -13,6 +13,7 @@ export interface PlanOptions {
   transform?: (file: string, next: string, previous: string | undefined) => string | Promise<string>;
   missing?: 'skip' | 'error';
   signal?: AbortSignal;
+  renderOptions?: RenderOptions;
 }
 export async function planTemplates(options: PlanOptions): Promise<PlannedFile[]> {
   const result: PlannedFile[] = [];
@@ -37,7 +38,7 @@ export async function planTemplates(options: PlanOptions): Promise<PlannedFile[]
       await options.fs.validate?.(options.root, destination);
       const previous = options.fs.exists(destination) ? await options.fs.read(destination) : undefined;
       let contents = await options.fs.read(source);
-      if (template.rendered) contents = await (options.render ?? render)(contents, options.context ?? {});
+      if (template.rendered) contents = options.render ? await options.render(contents,options.context ?? {}) : render(contents,options.context ?? {},options.renderOptions);
       if (options.transform) contents = await options.transform(file, contents, previous);
       checkAbort(options.signal);
       result.push({file, destination, contents, previous, before: {exists: previous !== undefined, digest: previous === undefined ? undefined : contentDigest(previous)}, tracked: template.tracked, changed: contents !== previous,
