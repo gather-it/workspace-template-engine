@@ -4,6 +4,7 @@ import type {FilePort, PlannedFile} from './plan.js';
 import {contained} from './resolve.js';
 import {assertPlanCurrent} from './preconditions.js';
 import {TemplateError} from './errors.js';
+import {atomicWrite} from './atomic.js';
 export async function applyTemplatePlan(plan: readonly PlannedFile[], options: {
   root: string; fs: FilePort; track?: (file: string, tracked: boolean) => void | Promise<void>;
 }) {
@@ -26,7 +27,7 @@ export async function applyTemplatePlan(plan: readonly PlannedFile[], options: {
 export function nodeFiles(): FilePort {
   return {
     exists: existsSync, read: file => fs.readFile(file, 'utf8'),
-    write: async (file, contents) => { await fs.writeFile(file, contents); },
+    write: atomicWrite,
     ensureParent: async file => { await fs.mkdir(path.dirname(file), {recursive: true}); },
     async validate(root, file) {
       const canonicalRoot = realpathSync(root);
