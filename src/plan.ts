@@ -3,7 +3,8 @@ import {resolveTemplate, contained} from './resolve.js';
 import {render} from './render.js';
 import {contentDigest} from './preconditions.js';
 import {checkAbort,TemplateError} from './errors.js';
-export interface FilePort {exists(file: string): boolean; read(file: string): Promise<string>; write(file: string, contents: string): Promise<void>; remove?(file: string): Promise<void>; ensureParent(file: string): Promise<void>; validate?(root: string, file: string): Promise<void>}
+import path from 'node:path';
+export interface FilePort {exists(file: string): boolean; read(file: string): Promise<string>; write(file: string, contents: string): Promise<void>; remove?(file: string): Promise<void>; ensureParent(file: string): Promise<void>; validate?(root: string, file: string): Promise<void>; validateSource?(root: string, file: string): Promise<void>}
 export interface PlannedFile {file: string; destination: string; contents: string; previous?: string; before?: {exists: boolean; digest?: string}; tracked?: boolean; changed: boolean; write: boolean}
 export interface PlanOptions {
   root: string; sources: readonly string[]; catalog: ReadonlyMap<string, Readonly<Template>>; files: readonly string[];
@@ -24,6 +25,14 @@ export async function planTemplates(options: PlanOptions): Promise<PlannedFile[]
       if (!template) throw new Error();
       const source = resolveTemplate(template, options.sources, options.fs.exists);
       if (!source) { if (options.missing === 'skip') continue; throw new Error(); }
+      if (options.fs.validateSource) {
+        const sourceRoot = options.sources.find(root => {
+          const relative = path.relative(path.resolve(root),source);
+          return relative && relative !== '..' && !relative.startsWith('..'+path.sep) && !path.isAbsolute(relative);
+        });
+        if (!sourceRoot) throw new Error('Source outside roots');
+        await options.fs.validateSource(sourceRoot,source);
+      }
       const destination = contained(options.root, file);
       await options.fs.validate?.(options.root, destination);
       const previous = options.fs.exists(destination) ? await options.fs.read(destination) : undefined;

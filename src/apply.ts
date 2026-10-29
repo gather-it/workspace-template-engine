@@ -1,5 +1,5 @@
 import path from 'node:path';
-import {promises as fs, existsSync, realpathSync} from 'node:fs';
+import {promises as fs, existsSync, realpathSync, lstatSync, statSync} from 'node:fs';
 import type {FilePort, PlannedFile} from './plan.js';
 import {contained} from './resolve.js';
 import {assertPlanCurrent} from './preconditions.js';
@@ -66,9 +66,15 @@ export function nodeFiles(): FilePort {
     write: atomicWrite,
     remove: async file => { await fs.rm(file, {force: true}); },
     ensureParent: async file => { await fs.mkdir(path.dirname(file), {recursive: true}); },
+    async validateSource(root,file) {
+      const relative = path.relative(realpathSync(root),realpathSync(file));
+      if (!relative || relative === '..' || relative.startsWith('..'+path.sep) || path.isAbsolute(relative) || !statSync(file).isFile()) throw new Error('Invalid template source');
+    },
     async validate(root, file) {
       const canonicalRoot = realpathSync(root);
       contained(root, path.relative(root, file));
+      try { if (lstatSync(file).isSymbolicLink()) throw new Error('Symbolic destination'); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       let current = file;
       while (!existsSync(current)) { const parent = path.dirname(current); if (parent === current) throw new Error('Invalid root'); current = parent; }
       const relative = path.relative(canonicalRoot, realpathSync(current));
