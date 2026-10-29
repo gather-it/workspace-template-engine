@@ -2,6 +2,7 @@ import {type Template} from './catalog.js';
 import {resolveTemplate, contained} from './resolve.js';
 import {render} from './render.js';
 import {contentDigest} from './preconditions.js';
+import {checkAbort,TemplateError} from './errors.js';
 export interface FilePort {exists(file: string): boolean; read(file: string): Promise<string>; write(file: string, contents: string): Promise<void>; ensureParent(file: string): Promise<void>; validate?(root: string, file: string): Promise<void>}
 export interface PlannedFile {file: string; destination: string; contents: string; previous?: string; before?: {exists: boolean; digest?: string}; tracked?: boolean; changed: boolean; write: boolean}
 export interface PlanOptions {
@@ -10,11 +11,14 @@ export interface PlanOptions {
   render?: (template: string, context: Readonly<Record<string, unknown>>) => string | Promise<string>;
   transform?: (file: string, next: string, previous: string | undefined) => string | Promise<string>;
   missing?: 'skip' | 'error';
+  signal?: AbortSignal;
 }
 export async function planTemplates(options: PlanOptions): Promise<PlannedFile[]> {
   const result: PlannedFile[] = [];
   try {
+    checkAbort(options.signal);
     for (const file of [...new Set(options.files)]) {
+      checkAbort(options.signal);
       if (options.overwrite && options.overwrite !== file) continue;
       const template = options.catalog.get(file);
       if (!template) throw new Error();
@@ -26,9 +30,10 @@ export async function planTemplates(options: PlanOptions): Promise<PlannedFile[]
       let contents = await options.fs.read(source);
       if (template.rendered) contents = await (options.render ?? render)(contents, options.context ?? {});
       if (options.transform) contents = await options.transform(file, contents, previous);
+      checkAbort(options.signal);
       result.push({file, destination, contents, previous, before: {exists: previous !== undefined, digest: previous === undefined ? undefined : contentDigest(previous)}, tracked: template.tracked, changed: contents !== previous,
         write: contents !== previous && (previous === undefined || !!template.overwrite || !!options.overwriteAll || !!options.overwrite)});
     }
-  } catch { throw new Error('Template planning failed'); }
+  } catch (error) { if (error instanceof TemplateError) throw error; throw new Error('Template planning failed'); }
   return result;
 }
