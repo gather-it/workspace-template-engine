@@ -3,7 +3,7 @@ import {resolveTemplate, contained} from './resolve.js';
 import {render} from './render.js';
 import {contentDigest} from './preconditions.js';
 import {checkAbort,TemplateError} from './errors.js';
-export interface FilePort {exists(file: string): boolean; read(file: string): Promise<string>; write(file: string, contents: string): Promise<void>; ensureParent(file: string): Promise<void>; validate?(root: string, file: string): Promise<void>}
+export interface FilePort {exists(file: string): boolean; read(file: string): Promise<string>; write(file: string, contents: string): Promise<void>; remove?(file: string): Promise<void>; ensureParent(file: string): Promise<void>; validate?(root: string, file: string): Promise<void>}
 export interface PlannedFile {file: string; destination: string; contents: string; previous?: string; before?: {exists: boolean; digest?: string}; tracked?: boolean; changed: boolean; write: boolean}
 export interface PlanOptions {
   root: string; sources: readonly string[]; catalog: ReadonlyMap<string, Readonly<Template>>; files: readonly string[];

@@ -1,5 +1,5 @@
 export class TemplateError extends Error {
-  constructor(public readonly code: 'stale-plan' | 'apply-failed' | 'cancelled') {
+  constructor(public readonly code: 'stale-plan' | 'apply-failed' | 'cancelled' | 'rollback-failed' | 'unsupported-rollback') {
     super('Template application failed');
     this.name = 'TemplateError';
   }
